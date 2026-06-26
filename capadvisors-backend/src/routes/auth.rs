@@ -46,7 +46,10 @@ pub async fn register(
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Hashing error: {}", e)))?
         .to_string();
 
-    conn.execute(
+    let tx = conn.transaction().await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    tx.execute(
         "INSERT INTO users (id, email, password_hash, role, created_at) VALUES (?1, ?2, ?3, 'student', ?4)",
         libsql::params![
             user_id.clone(),
@@ -64,12 +67,15 @@ pub async fn register(
         }
     })?;
 
-    conn.execute(
+    tx.execute(
         "INSERT OR IGNORE INTO student_ratings (student_id, display_name, rating, rating_deviation, volatility, games_played) VALUES (?1, ?2, 1500.0, 350.0, 0.06, 0)",
         libsql::params![user_id.clone(), email.clone()],
     )
     .await
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Rating seed failed: {}", e)))?;
+
+    tx.commit().await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     let token = sign_jwt(&user_id, &email, "student")?;
     Ok(Json(AuthResponse {
