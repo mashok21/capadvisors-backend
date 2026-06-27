@@ -1,5 +1,6 @@
 const GL2_SCALE: f64 = 173.7178;
 const DEFAULT_TAU: f64 = 0.5;
+const DEFAULT_VOLATILITY: f64 = 0.06;
 const CONVERGENCE_TOLERANCE: f64 = 0.000001;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -20,6 +21,39 @@ pub struct TournamentResult {
 struct MatchResult {
     opponent: Glicko2Rating,
     score: f64,
+}
+
+/// Runs one Glicko-2 rating period for a single player against a set of
+/// discrete match opponents.
+///
+/// * `matches` — `(opponent_rating, opponent_rd, outcome)` tuples where
+///   `outcome` is `1.0` for a win and `0.0` for a loss.
+///
+/// Returns `(new_rating, new_rating_deviation, new_volatility)`.
+pub fn compute_glicko2_update(
+    player_rating: f64,
+    player_rd: f64,
+    player_vol: f64,
+    matches: Vec<(f64, f64, f64)>,
+) -> (f64, f64, f64) {
+    let current = Glicko2Rating {
+        rating: player_rating,
+        rating_deviation: player_rd,
+        volatility: player_vol,
+    };
+    let match_structs: Vec<MatchResult> = matches
+        .into_iter()
+        .map(|(r, rd, s)| MatchResult {
+            opponent: Glicko2Rating {
+                rating: r,
+                rating_deviation: rd,
+                volatility: DEFAULT_VOLATILITY,
+            },
+            score: s,
+        })
+        .collect();
+    let updated = calculate_rating_period(&current, &match_structs, DEFAULT_TAU);
+    (updated.rating, updated.rating_deviation, updated.volatility)
 }
 
 pub fn calculate_tournament_performance(

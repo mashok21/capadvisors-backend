@@ -24,6 +24,7 @@ pub struct StagingItem {
     pub question_text: String,
     pub scoring_rubric_json: String,
     pub alternate_variants_json: String,
+    pub correct_answer: String,
     pub status: String,
     pub created_at: String,
 }
@@ -50,6 +51,7 @@ pub struct EditStagingRequest {
     pub question_text: String,
     pub scoring_rubric_json: String,
     pub alternate_variants_json: String,
+    pub correct_answer: String,
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -66,7 +68,7 @@ pub async fn list_staging(
     let mut stmt = conn
         .prepare(
             "SELECT id, chapter_id, question_text, scoring_rubric_json,
-                    alternate_variants_json, status, created_at
+                    alternate_variants_json, status, created_at, correct_answer
              FROM   question_staging_queue
              WHERE  status = 'pending_review'
              ORDER  BY created_at ASC",
@@ -102,13 +104,15 @@ pub async fn edit_staging(
             "UPDATE question_staging_queue
              SET    question_text           = ?1,
                     scoring_rubric_json     = ?2,
-                    alternate_variants_json = ?3
-             WHERE  id     = ?4
+                    alternate_variants_json = ?3,
+                    correct_answer          = ?4
+             WHERE  id     = ?5
                AND  status = 'pending_review'",
             libsql::params![
                 payload.question_text,
                 payload.scoring_rubric_json,
                 payload.alternate_variants_json,
+                payload.correct_answer,
                 id.clone()
             ],
         )
@@ -182,14 +186,16 @@ pub async fn approve_staging(
     tx.execute(
         "INSERT INTO quiz_databank
              (id, chapter_id, question_text, scoring_rubric_json,
-              alternate_variants_json, rating, rating_deviation, volatility)
-         VALUES (?1, ?2, ?3, ?4, ?5, 1500.0, 350.0, 0.06)",
+              alternate_variants_json, correct_answer,
+              rating, rating_deviation, volatility)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1500.0, 350.0, 0.06)",
         libsql::params![
             databank_id.clone(),
             staging.chapter_id.clone(),
             staging.question_text.clone(),
             staging.scoring_rubric_json.clone(),
-            staging.alternate_variants_json.clone()
+            staging.alternate_variants_json.clone(),
+            staging.correct_answer.clone()
         ],
     )
     .await
@@ -356,7 +362,7 @@ async fn fetch_staging_item(
     let mut stmt = conn
         .prepare(
             "SELECT id, chapter_id, question_text, scoring_rubric_json,
-                    alternate_variants_json, status, created_at
+                    alternate_variants_json, status, created_at, correct_answer
              FROM   question_staging_queue
              WHERE  id = ?1",
         )
@@ -384,6 +390,7 @@ fn row_to_staging(row: &libsql::Row) -> Result<StagingItem, (StatusCode, String)
         alternate_variants_json: row.get(4).map_err(libsql_err)?,
         status:                  row.get(5).map_err(libsql_err)?,
         created_at:              row.get(6).map_err(libsql_err)?,
+        correct_answer:          row.get::<String>(7).unwrap_or_default(),
     })
 }
 

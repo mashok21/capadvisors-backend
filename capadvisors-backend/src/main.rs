@@ -16,6 +16,7 @@ mod routes {
     pub mod map;
     pub mod nexus;
     pub mod quiz;
+    pub mod quiz_submit;
     pub mod ranking;
 }
 pub mod utils;
@@ -103,6 +104,10 @@ async fn main() {
         .route(
             "/api/admin/questions/databank/{id}",
             delete(routes::quiz::delete_from_databank),
+        )
+        .route(
+            "/api/quizzes/submit",
+            post(routes::quiz_submit::submit_quiz),
         )
         .route("/api/map-document", post(routes::map::map_document))
         .route(

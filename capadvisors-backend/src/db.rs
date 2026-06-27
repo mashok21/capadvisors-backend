@@ -345,6 +345,22 @@ impl DbHelper {
         )
         .await?;
 
+        // Add correct_answer to staging and databank so quiz submission can
+        // evaluate answers without re-running the mapping pipeline.
+        for (table, col, def) in [
+            ("question_staging_queue", "correct_answer", "TEXT NOT NULL DEFAULT ''"),
+            ("quiz_databank",          "correct_answer", "TEXT NOT NULL DEFAULT ''"),
+        ] {
+            if !column_exists(&conn, table, col).await? {
+                conn.execute(
+                    &format!("ALTER TABLE {} ADD COLUMN {} {};", table, col, def),
+                    (),
+                )
+                .await?;
+                println!("[schema] Migration: added column '{}' to {}", col, table);
+            }
+        }
+
         // Seed Chapters
         self.seed_chapters(&conn).await?;
         Ok(())
