@@ -83,6 +83,7 @@ async fn main() {
         .route("/api/ranking/leaderboard", get(routes::ranking::get_leaderboard))
         .route("/api/auth/register", post(routes::auth::register))
         .route("/api/auth/login", post(routes::auth::login))
+        .route("/api/auth/admin/create", post(routes::auth::create_admin))
         .route("/api/map-document", post(routes::map::map_document))
         .route(
             "/api/map-document/jobs/{job_id}",

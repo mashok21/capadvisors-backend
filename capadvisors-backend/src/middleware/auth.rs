@@ -87,6 +87,39 @@ where
     }
 }
 
+/// Extractor that requires the authenticated user to hold the "super_admin"
+/// role.  Use it on privileged operational routes:
+///
+/// ```rust
+/// async fn sensitive_handler(RequireSuperAdmin(claims): RequireSuperAdmin) { ... }
+/// ```
+#[derive(Clone)]
+pub struct RequireSuperAdmin(pub Claims);
+
+impl<S> FromRequestParts<S> for RequireSuperAdmin
+where
+    S: Send + Sync,
+{
+    type Rejection = Response;
+
+    async fn from_request_parts<'a, 'b>(
+        parts: &'a mut axum::http::request::Parts,
+        state: &'b S,
+    ) -> Result<Self, Self::Rejection> {
+        let AuthUser(claims) = AuthUser::from_request_parts(parts, state).await?;
+
+        if claims.role == "super_admin" {
+            Ok(RequireSuperAdmin(claims))
+        } else {
+            Err((
+                StatusCode::FORBIDDEN,
+                "Access Denied: Super Admin operational tier required.".to_string(),
+            )
+                .into_response())
+        }
+    }
+}
+
 fn unauthorized_response(msg: &str) -> Response {
     (StatusCode::UNAUTHORIZED, msg.to_string()).into_response()
 }

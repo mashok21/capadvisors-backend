@@ -171,14 +171,27 @@ impl DbHelper {
         conn.execute(
             "CREATE TABLE IF NOT EXISTS users (
                 id TEXT PRIMARY KEY,
-                email TEXT UNIQUE NOT NULL,
+                name TEXT NOT NULL DEFAULT '',
+                email TEXT NOT NULL UNIQUE,
                 password_hash TEXT NOT NULL,
-                role TEXT NOT NULL DEFAULT 'student',
-                created_at TEXT NOT NULL
+                role TEXT NOT NULL
+                    CHECK(role IN ('super_admin', 'admin', 'quiz_taker'))
+                    DEFAULT 'quiz_taker',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             );",
             (),
         )
         .await?;
+
+        // Migration: add name column to existing users tables created before this schema.
+        if !column_exists(&conn, "users", "name").await? {
+            conn.execute(
+                "ALTER TABLE users ADD COLUMN name TEXT NOT NULL DEFAULT '';",
+                (),
+            )
+            .await?;
+            println!("[schema] Migration: added column 'name' to users");
+        }
 
         // Create Student Ratings Table
         conn.execute(
